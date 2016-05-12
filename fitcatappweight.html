@@ -1,0 +1,34 @@
+<head>
+</head>
+
+<body>
+	{{>addFood}}
+---
+
+	{{>weight}}
+
+----
+
+	{{>catWeightTemplate}}	
+
+
+</body>
+
+<template name = "weight">
+	<div><button id="tareCatWeightButton">Tare catWeight</button></div>
+	{{>c3 data=weightChartPlot id="chart1"}}
+</template>
+
+
+<template name = "catWeightTemplate">
+	{{>c3 data=catFoodWeightChart id="Chart2"}}
+</template>
+
+<template name = "addFood">
+
+<div><button id="addFoodButton">Add food...</button></div>
+<div>Current Food Weight: {{foodWeightVar}} g</div>
+<div> Notifications: {{notificationsVar}} </div>
+
+
+</template>

@@ -1,102 +1,250 @@
-//var spark = Meteor.npmRequire('spark');
-var future = new (Npm.require('fibers/future'))();
+weightDB = new Mongo.Collection('WeightDB');
+keyStatsDB = new Mongo.Collection('keyStatsDB');
+notifications = new Mongo.Collection('Notifications');
 
-
-
-  var sp = Meteor.npmRequire('sparknode');
-
+var weightyID = '29003f001747343338333633'; // = devices[1]
+var flapID = '40003c000c47343432313031'; // = devices[0] when using RF, should be able to get this using listDevices...
 
 
 
 if (Meteor.isServer) {
+  Meteor.startup(function () {
+        notifications.insert({ update : "" });
 
-//var spark = Meteor.npmRequire('sparknode');
-//var core =    new spark.Core({accessToken:'d12e23f44cbb73dbb07b7e3f97e0f611d4d67334',id:'40003c000c47343432313031'});
-//var coreWeight = new spark.Core({accessToken:'d12e23f44cbb73dbb07b7e3f97e0f611d4d67334',id:'29003f001747343338333633'});
-
-  var collection = new sp.Collection('29003f001747343338333633');
-
-
-
-    collection(function(err, value) {
-    //Do something with value 
-    if(!err){
-          console.log("getting value...",value);
-
-    }else{
-      console.log(err);
-    }
+      weightDB.remove({});
+      weightDB.insert({ createdAt: new Date(2016, 1, 1, 7, 0, 0, 0), foodWeight: 100, catWeight: 10000 });
+      weightDB.insert({ createdAt: new Date(2016, 1, 1, 9, 0, 0, 0), foodWeight: 50, catWeight: 10000 });
+      weightDB.insert({ createdAt: new Date(2016, 1, 1, 13, 0, 0, 0), foodWeight: 0, catWeight: 5000 });
+      weightDB.insert({ createdAt: new Date(2016, 1, 2, 13, 0, 0, 0), foodWeight: 0, catWeight: 5000 });
+      weightDB.insert({ createdAt: new Date(2016, 1, 2, 11, 0, 0, 0), foodWeight: 0, catWeight: 10000 });
+     
   });
 
 
 
 
+var spark = Meteor.npmRequire('spark');
+
+Meteor.publish('weightDB',function(){
+  return weightDB.find();
+});
+
+Meteor.publish('keyStatsDB',function(){
+  return keyStatsDB.find();
+});
+
+Meteor.publish('notifications',function(){
+  return notifications.find();
+});
+//each one of these is the start of a period...
+var nowDate = moment({hour: 0})._d; 
+var dateWeekBegin= moment({hour: 0,minute:0}).subtract(7,'days')._d; 
+var dateMonthBegin = moment({hour: 0,minute:0}).subtract(31,'days')._d; //month doesnt work??
+
+console.log("nowDate: ", nowDate);
+console.log("dateWeekBegin: ", dateWeekBegin);
+console.log("dateMonthBegin: ", dateMonthBegin);
+
+var dailyAverageCatWeight = [
+      { "$match" : { 'createdAt': { '$gt': nowDate } } },
+      {"$group": { "_id": {"day": { "$dayOfWeek": "$createdAt" }}, "catWeightAverage" : { "$avg": "$catWeight"}}}
+]; 
+
+var weeklyAverageCatWeight = [
+      { "$match" : { 'createdAt': { '$gt': dateWeekBegin } } },
+      {"$group": { "_id": { "$dayOfWeek": "$createdAt" }, "catWeightAverage" : { "$avg": "$catWeight"}}} 
+]; 
+
+var monthlyAverageCatWeight = [
+      { "$match" : { 'createdAt': { '$gt': dateMonthBegin } } },
+      {"$group": { "_id": { "$dayOfMonth": "$createdAt" }, "catWeightAverage" : { "$avg": "$catWeight"}}}
+]; 
+
+var dailyAverageCatWeightResult = weightDB.aggregate(dailyAverageCatWeight);
+var weeklyAverageCatWeightResult = weightDB.aggregate(weeklyAverageCatWeight);
+var monthlyAverageCatWeightResult = weightDB.aggregate(monthlyAverageCatWeight);
+
+console.log("dailyAverageCatWeightResult: ", dailyAverageCatWeightResult);
+console.log("weeklyAverageCatWeightResult: ", weeklyAverageCatWeightResult); //this one
+console.log("monthlyAverageCatWeightResult: ", monthlyAverageCatWeightResult);
+
+  console.log("XX Weekday: ", weeklyAverageCatWeightResult[i]._id);
+  console.log("XX Weight Avg: ", weeklyAverageCatWeightResult[i].avg);
+
+  //add into an araay [a,b,c]
+  keyStatsDB.insert({
+  createdAt: new Date(),
+  weeklyAverageCatWeightResultArrayDay: weeklyAverageCatWeightResultArrayDay,
+  weeklyAverageCatWeightResultArrayAverage: weeklyAverageCatWeightResultArrayAverage,
+  //dailyAverageCatWeightResult: dailyAverageCatWeightResult,
+  //weeklyAverageCatWeightResult: weeklyAverageCatWeightResult,
+  //monthlyAverageCatWeightResult: monthlyAverageCatWeightResult
+
+  });
 
 
 
-/*
 
-    // signs in and lists devices on startup...
-    var promise = new.Promise(function(resolve,reject){
-          login();
-          if(!err){
-            resolve("all okay!");
-          }else{
-            reject("uhoh");
-          }
+}
 
+for(i=0; i<monthlyAverageCatWeightResult.length; i++){
+  console.log("XX Monthday: ", monthlyAverageCatWeightResult[i]._id);
+  console.log("XX Weight Avg: ", monthlyAverageCatWeightResult[i].avg);  
+
+    //add into an araay [a,b,c]
+
+}
+
+
+keyStatsDB.insert({
+  createdAt: new Date(),
+  dailyAverageCatWeightResult: [dailyAverageCatWeightResult],
+  weeklyAverageCatWeightResult: [weeklyAverageCatWeightResult],
+  monthlyAverageCatWeightResult: [monthlyAverageCatWeightResult]
+
+});
+
+
+
+//****************************
+
+
+var dailyMaxFeedWeight = [ //tells you how total food weight cat has been fed today. Pre-filtered
+      { "$match" : { 'createdAt': { '$gt': nowDate } } },
+      {"$group": { "_id": {"day": { "$dayOfWeek": "$createdAt" }}, "max" : { "$max": "$foodWeight"}}}
+]; 
+
+var weeklyMaxFeedWeight = [ //tells you how total food weight cat has been fed in the last week, by day.  
+      { "$match" : { 'createdAt': { '$gt': dateWeekBegin } } },
+      {"$group": { "_id": null, "max" : { "$max": "$foodWeight"}}} 
+]; 
+
+var monthlyMaxFeedWeight = [ //tells you how total food weight cat has been fed in the last month, by day.  
+      { "$match" : { 'createdAt': { '$gt': dateMonthBegin } } },
+      {"$group": { "_id": {"day": { "$dayOfWeek": "$createdAt" }}, "max" : { "$max": "$foodWeight"}}}
+]; 
+
+
+var dailyMaxFeedWeightResult = weightDB.aggregate(dailyMaxFeedWeight);
+var weeklyMaxFeedWeightResult = weightDB.aggregate(weeklyMaxFeedWeight);
+var monthlyMaxFeedWeightResult = weightDB.aggregate(monthlyMaxFeedWeight);
+
+console.log("dailyMaxFeedWeightResult: ", dailyMaxFeedWeightResult[0]);
+console.log("weeklyMaxFeedWeightResult: ", weeklyMaxFeedWeightResult[0]);
+console.log("monthlyMaxFeedWeightResult: ", monthlyMaxFeedWeightResult[0]);
+
+
+
+
+
+
+
+
+
+
+
+
+
+Meteor.methods({
+        'tareFood': function(){
+            console.log("called tare function");
+            coreWeight.callFunction('tareFunction','tareFood')
+            .then(function(data){
+                console.log("Success calling tare function", data);
+            })
+            .catch(function(err){
+                console.log("An error when calling the tare function: ", err);
+            });
+      },
+
+        'tareCat': function(){
+            console.log("called tare function");
+            coreWeight.callFunction('tareFunction','tareCat')
+            .then(function(data){
+                console.log("Success calling tare function", data);
+            })
+            .catch(function(err){
+                console.log("An error when calling the tare function: ", err);
+            });
+      },      
+
+        'callOpenStream':function(token){
+            wrapOpenStream(token);
+        }
+});
+
+
+//Opens a stream to collect all variables
+ var openStream = function() {
+    console.log("Waiting on foodWeight openStream");
+    //Get your event stream
+    var req = spark.getEventStream('wgtStr', '29003f001747343338333633', 
+    Meteor.bindEnvironment(function(data) { //error, data, response 
+      var parsedData = JSON.parse(data.data);
+       //var jsonData = JSON.parse(parsedData.data);
+      //seems to log whether data or not....
+
+       //event name, coreID, Callback
+            //add into weightDB database...  
+                weightDB.insert({
+                createdAt: new Date(),
+                foodWeight: parsedData.foodWeight, //data.foodWeight
+                catWeight: parsedData.catWeight
+              });
+              console.log("Updated weights:")
+              console.log('foodWeight: ', parsedData.foodWeight, " g");
+              console.log('catWeight: ', parsedData.catWeight, " g");
+
+            }));
+
+    req.on('end', function() {
+        console.log("weightstream ended!  re-opening in 3 seconds...");
+        setTimeout(openStream, 3 * 1000);
+    });
+
+  var notificationReq = spark.getEventStream('notifications', '29003f001747343338333633',
+    Meteor.bindEnvironment(function(data){
+       var parsedNotificationData = data.data;
+
+       notifications.insert({
+        update: parsedNotificationData
+       });
+
+       console.log('notifications: ', parsedNotificationData);
+
+    }));
+
+    notificationReq.on('end', function() {
+        console.log("weightstream ended!  re-opening in 3 seconds...");
+        setTimeout(openStream, 3 * 1000);
     });
 
 
-    promise.then(function(){
-        console.log("called listDevices()");      
-        listDevices();
-      }).then(function(){
-        console.log("called getDevices()");        
-        getDevices();
-      }).finally(function(){
-        console.log("called getWeight()");                
-        getWeight();
-      }).catch(console.log("arg"));
 
 
 
-  });
-
-
-function login(){
- spark.login({accessToken: 'd12e23f44cbb73dbb07b7e3f97e0f611d4d67334'})
-  .then( function(token) {
-    console.log('Logged into Spark:', token);
-    return token
-  })
-  .catch( 
-    function(err) {
-      console.error('Login to Spark failed:', err);
-  });
-}
 
 
 
-function listDevices(){
-  spark.listDevices()
-    .then(function(devices){
-        console.log('Devices: '); //, devices
-
-      })
-    .catch(
-      function(err) {
-        console.log('List devices call failed: ', err);
-      });
-}
 
 
-function getDevices(){
-    spark.getDevice('29003f001747343338333633')
-    .then(function(data,err) {
-        device1 = data;
-        console.log('Got device name: ' + data.name);
 
+
+};
+
+function signIn(){
+    console.log("attempting to sign in...");
+    spark.login({accessToken:'d12e23f44cbb73dbb07b7e3f97e0f611d4d67334'})
+    .then(function(token){
+        console.log("Login okay", token);
+        return token;
+    })
+
+    var devicesPr = spark.listDevices();
+
+    devicesPr.then(function(devices){
+        console.log('Devices: ', devices); //, devices
+        coreWeight = devices[1];
     })
     .catch(
       function(err){
@@ -104,15 +252,41 @@ function getDevices(){
       });
 }
 
-function getWeight(){
-    console.log('getting weight...');
-}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+var wrapSignIn = Meteor.wrapAsync(signIn);
+var wrapOpenStream = Meteor.wrapAsync(openStream);
+
+//...and go:
+
+    Promise.all([signIn()])
+    .then(function(token){
+      wrapOpenStream(token);
+    })
+    .catch(function(){
+      console.log("something went wrong..")
+    });
+  
+  
 
 
 
 
 
-*/
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -231,4 +405,4 @@ coreScale.weight.autoupdate = false;
 
 
 
-}
+

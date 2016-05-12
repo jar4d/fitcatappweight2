@@ -1,0 +1,70 @@
+function listDevices(){
+  spark.listDevices()
+    .then(function(devices){
+        console.log('Devices: ', devices); //, devices
+
+      })
+    .catch(
+      function(err) {
+        console.log('List devices call failed: ', err);
+      });
+}
+
+
+function getDevices(){
+    spark.getDevice('29003f001747343338333633')
+    .then(function(data,err) {
+        devices = data;
+        console.log('Got device name: ' + data.name);
+
+    })
+    .catch(
+      function(err){
+        console.log("Something bad has happened when getting device: ", err); 
+      });
+}
+
+function getWeight(devices){
+    console.log('getting weight...');
+    var core = devices[0];
+    core.getVariable('weight')
+    .then(function(data,err){
+      console.log("Got Variable: ", data);
+    })
+    .catch(
+      function(err){
+        console.log("something bad happened when getting variable...", err);
+      });
+
+}
+
+
+var getVariable = function(){
+  // If login is successful we get and accessToken,
+  // we'll use that to call Spark API ListDevices
+  var listDevices = spark.listDevices();
+
+  listDevices.then(
+    // We get an array with devices back and we list them
+    function(devices){
+      console.log('API call List Devices: ', devices);
+
+      // callback to be executed by each core
+
+      // The variable needs to be defined  in the code running in
+      // the Spark core.
+      var core = devices[1];
+      core.getVariable('weight', function(err, data) {
+        if (err) {
+          console.log('An error occurred while getting core attrs:', err);
+        } else {
+          console.log('Core attr retrieved successfully:', data.result);
+          //Meteor.setTimeout(wrapGetVariable(),5000);
+        }
+      });
+
+    },
+    function(err) {
+      console.log('API call failed: ', err);
+    }
+  )}

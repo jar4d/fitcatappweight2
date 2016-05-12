@@ -246,17 +246,6 @@
           "version": "3.7.7"
         }
       }
-    },
-    "sparknode": {
-      "version": "0.4.9",
-      "dependencies": {
-        "lodash": {
-          "version": "2.4.2"
-        },
-        "commander": {
-          "version": "2.1.0"
-        }
-      }
     }
   }
 }
